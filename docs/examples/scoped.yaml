@@ -1,0 +1,31 @@
+ apiVersion: v1alpha1
+kind: ClusterValidator
+metadata:
+  name: scoped-validation
+spec:
+  configuration:
+    # global test configuration
+    successThreshold: 10
+    failureThreshold: 10 
+    interval: 1s
+  resources:
+    # resource name and apiVersion
+  - name: pods
+    apiVersion: v1
+    names:
+      # include all pods excluding pods that's name start with "debug-pod"
+      include: 
+      - "*"
+      exclude:
+      - "debug-pod*"
+    namespaces:
+      # only include pods in the kube-system namespace
+      include:
+      - "kube-system"
+    # basic field validation
+    fields: 
+    - path: .status.phase=running
+    required: true
+    configuration:
+      successThreshold: 3
+      failureThreshold: 10
