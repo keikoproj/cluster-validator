@@ -120,6 +120,7 @@ func (v *Validator) getValidationResources(resource v1alpha1.ClusterResource) []
 		validationResources = make([]unstructured.Unstructured, 0)
 	)
 
+	v.RLock()
 	for _, r := range v.ClusterResources[resource.Name] {
 
 		var (
@@ -137,6 +138,8 @@ func (v *Validator) getValidationResources(resource v1alpha1.ClusterResource) []
 
 		validationResources = append(validationResources, r)
 	}
+	v.RUnlock()
+
 	return validationResources
 }
 
@@ -334,7 +337,8 @@ func (v *Validator) listDynamicResource(resource v1alpha1.ClusterResource) error
 	if err != nil {
 		return errors.Wrapf(err, "failed to list dynamic resource '%v'", gvr)
 	}
+	v.Lock()
 	v.ClusterResources[resource.Name] = resources.Items
-
+	v.Unlock()
 	return nil
 }

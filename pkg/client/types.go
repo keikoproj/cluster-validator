@@ -26,6 +26,7 @@ import (
 )
 
 type Validator struct {
+	sync.RWMutex
 	Waiter
 	Validation       *v1alpha1.ClusterValidation
 	Kubernetes       dynamic.Interface
