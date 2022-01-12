@@ -97,19 +97,23 @@ func inSelectionScope(s *v1alpha1.SelectionScope, str string) bool {
 		return true
 	}
 
+	var matchScope bool
+
 	for _, includes := range s.Include {
 		if patternMatch(includes, str) {
-			return true
+			matchScope = true
+			break
 		}
 	}
 
 	for _, excludes := range s.Exclude {
 		if patternMatch(excludes, str) {
-			return false
+			matchScope = false
+			break
 		}
 	}
 
-	return false
+	return matchScope
 }
 
 func namespacedName(r unstructured.Unstructured) string {

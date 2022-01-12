@@ -1,0 +1,25 @@
+apiVersion: v1alpha1
+kind: ClusterValidator
+metadata:
+  name: custom-validation
+spec:
+  configuration:
+    successThreshold: 3
+    failureThreshold: 3 
+    interval: 1ms
+  resources:
+  - name: namespaces
+    apiVersion: v1
+    names:
+      include: 
+      - "test-namespace*"
+    fields: 
+    - path: .status.phase=active
+  - name: dogs
+    apiVersion: animals.io/v1alpha1
+    names:
+      include: 
+      - "test-dog*"
+    fields: 
+    - path: .status.phase=woof
+    required: true

@@ -1,0 +1,22 @@
+apiVersion: v1alpha1
+kind: ClusterValidator
+metadata:
+  name: field-validation
+spec:
+  configuration:
+    successThreshold: 3
+    failureThreshold: 3 
+    interval: 1ms
+  resources:
+  - name: namespaces
+    apiVersion: v1
+    names:
+      include: 
+      - "test-namespace*"
+    fields: 
+    - path: .status.phase=active
+    required: true
+    configuration:
+      successThreshold: 10
+      failureThreshold: 10
+      interval: 50ms
