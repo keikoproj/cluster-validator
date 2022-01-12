@@ -1,0 +1,25 @@
+apiVersion: v1alpha1
+kind: ClusterValidator
+metadata:
+  name: scope-validation
+spec:
+  configuration:
+    successThreshold: 3
+    failureThreshold: 3 
+    interval: 1ms
+  resources:
+  - name: pods
+    apiVersion: v1
+    names:
+      include: 
+      - test-pod*
+      exclude: 
+      - test-pod-2
+    namespaces:
+      include:
+      - test-namespace*
+      exclude:
+      - test-namespace-3
+    fields: 
+    - path: .status.phase=running
+    required: true

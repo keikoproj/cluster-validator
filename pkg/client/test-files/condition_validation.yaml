@@ -1,0 +1,22 @@
+apiVersion: v1alpha1
+kind: ClusterValidator
+metadata:
+  name: condition-validation
+spec:
+  configuration:
+    successThreshold: 3
+    failureThreshold: 3 
+    interval: 1ms
+  resources:
+  - name: nodes
+    apiVersion: v1
+    names:
+      include: 
+      - "test-node*"
+      exclude:
+      - "test-node-1"
+    conditions: 
+    - path: status.conditions
+      type: ready
+      status: true
+    required: true
