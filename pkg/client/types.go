@@ -22,6 +22,7 @@ import (
 	"github.com/keikoproj/cluster-validator/pkg/api/v1alpha1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -37,6 +38,7 @@ type Waiter struct {
 	sync.WaitGroup
 	finished chan bool
 	errors   chan error
+	summary  chan ValidationSummary
 }
 
 type ConditionValidationResult struct {
@@ -64,6 +66,7 @@ func NewFieldValidationResult(path string) FieldValidationResult {
 }
 
 type ValidationSummary struct {
+	GVR                 schema.GroupVersionResource
 	FieldValidation     []FieldValidationResult
 	ConditionValidation []ConditionValidationResult
 }
@@ -95,6 +98,7 @@ func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator
 		Waiter: Waiter{
 			finished: make(chan bool),
 			errors:   make(chan error),
+			summary:  make(chan ValidationSummary),
 		},
 		Validation:       m,
 		Kubernetes:       c,
@@ -106,4 +110,12 @@ func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator
 	}
 
 	return v
+}
+
+type ValidationStatus string
+
+type ValidationError struct {
+	Status    ValidationStatus
+	Message   error
+	Summaries []ValidationSummary
 }

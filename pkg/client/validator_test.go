@@ -210,8 +210,8 @@ func Test_PositiveFieldValidation(t *testing.T) {
 	_mockNamespace(dynamic, "test-namespace-1", true)
 	_mockNamespace(dynamic, "test-namespace-2", true)
 	_mockNamespace(dynamic, "other-namespace-3", false)
-	err := v.Validate()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationSucceeded))
 }
 
 func Test_NegativeFieldValidation(t *testing.T) {
@@ -222,8 +222,8 @@ func Test_NegativeFieldValidation(t *testing.T) {
 	_mockNamespace(dynamic, "test-namespace-1", true)
 	_mockNamespace(dynamic, "test-namespace-2", false)
 	_mockNamespace(dynamic, "other-namespace-3", true)
-	err := v.Validate()
-	g.Expect(err).To(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationFailed))
 }
 
 func Test_PositiveConditionValidation(t *testing.T) {
@@ -234,8 +234,8 @@ func Test_PositiveConditionValidation(t *testing.T) {
 	_mockNode(dynamic, "test-node-1", false)
 	_mockNode(dynamic, "test-node-2", true)
 	_mockNode(dynamic, "test-node-3", true)
-	err := v.Validate()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationSucceeded))
 }
 
 func Test_NegativeConditionValidation(t *testing.T) {
@@ -245,8 +245,8 @@ func Test_NegativeConditionValidation(t *testing.T) {
 	v := _mockValidator("condition_validation.yaml", dynamic)
 	_mockNode(dynamic, "test-node-1", true)
 	_mockNode(dynamic, "test-node-2", false)
-	err := v.Validate()
-	g.Expect(err).To(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationFailed))
 }
 
 func Test_PositiveScopeValidation(t *testing.T) {
@@ -257,8 +257,8 @@ func Test_PositiveScopeValidation(t *testing.T) {
 	_mockPod(dynamic, "test-pod-1", "test-namespace-1", true)
 	_mockPod(dynamic, "test-pod-2", "test-namespace-2", false)
 	_mockPod(dynamic, "test-pod-3", "test-namespace-3", false)
-	err := v.Validate()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationSucceeded))
 }
 
 func Test_NegativeScopeValidation(t *testing.T) {
@@ -269,8 +269,8 @@ func Test_NegativeScopeValidation(t *testing.T) {
 	_mockPod(dynamic, "test-pod-1", "test-namespace-1", false)
 	_mockPod(dynamic, "test-pod-2", "test-namespace-2", true)
 	_mockPod(dynamic, "test-pod-3", "test-namespace-3", true)
-	err := v.Validate()
-	g.Expect(err).To(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationFailed))
 }
 
 func Test_PositiveCustomValidation(t *testing.T) {
@@ -281,8 +281,8 @@ func Test_PositiveCustomValidation(t *testing.T) {
 	_mockDog(dynamic, "test-dog-1", "test-namespace-1", "woof")
 	_mockDog(dynamic, "test-dog-2", "test-namespace-2", "woof")
 	_mockDog(dynamic, "dog-3", "test-namespace-3", "bla")
-	err := v.Validate()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationSucceeded))
 }
 
 func Test_NegativeCustomValidation(t *testing.T) {
@@ -293,8 +293,8 @@ func Test_NegativeCustomValidation(t *testing.T) {
 	_mockDog(dynamic, "test-dog-1", "test-namespace-1", "woof")
 	_mockDog(dynamic, "test-dog-2", "test-namespace-2", "bla")
 	_mockDog(dynamic, "dog-3", "test-namespace-3", "bla")
-	err := v.Validate()
-	g.Expect(err).To(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationFailed))
 }
 
 func Test_PositiveRequiredValidation(t *testing.T) {
@@ -306,8 +306,8 @@ func Test_PositiveRequiredValidation(t *testing.T) {
 	_mockDog(dynamic, "test-dog-1", "test-namespace-1", "woof")
 	_mockDog(dynamic, "test-dog-2", "test-namespace-2", "woof")
 	_mockDog(dynamic, "dog-3", "test-namespace-3", "bla")
-	err := v.Validate()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationSucceeded))
 }
 
 func Test_ConfigurationOverride(t *testing.T) {
@@ -317,8 +317,8 @@ func Test_ConfigurationOverride(t *testing.T) {
 	start := time.Now()
 	v := _mockValidator("configuration_override.yaml", dynamic)
 	_mockNamespace(dynamic, "test-namespace-1", true)
-	err := v.Validate()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	validateErr := v.Validate()
+	g.Expect(validateErr.Status).To(gomega.Equal(ValidationSucceeded))
 	end := time.Now()
 	elapsed := end.Sub(start)
 	g.Expect(elapsed.Seconds()).To(gomega.BeNumerically(">", 0.45))

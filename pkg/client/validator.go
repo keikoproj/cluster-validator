@@ -29,11 +29,13 @@ import (
 )
 
 var (
-	successEmoji = emoji.Sprint(":check_mark_button:")
-	failEmoji    = emoji.Sprint(":fire:")
+	successEmoji                         = emoji.Sprint(":check_mark_button:")
+	failEmoji                            = emoji.Sprint(":fire:")
+	ValidationFailed    ValidationStatus = "failed"
+	ValidationSucceeded ValidationStatus = "succeeded"
 )
 
-func (v *Validator) Validate() error {
+func (v *Validator) Validate() ValidationError {
 	var (
 		finished bool
 	)
@@ -74,12 +76,14 @@ func (v *Validator) Validate() error {
 
 				if successCount >= successThreshold {
 					if !reflect.DeepEqual(summary, ValidationSummary{}) {
+						v.Waiter.summary <- summary
 						prettyPrintStruct(summary)
 					}
 					log.Infof("%v resource '%v' validated successfully", successEmoji, resourceName)
 					return
 				} else if failureCount >= failureThreshold {
 					if !reflect.DeepEqual(summary, ValidationSummary{}) {
+						v.Waiter.summary <- summary
 						prettyPrintStruct(summary)
 					}
 					if r.Required {
@@ -99,6 +103,7 @@ func (v *Validator) Validate() error {
 		close(v.Waiter.finished)
 	}()
 
+	summaries := []ValidationSummary{}
 	for {
 		if finished {
 			break
@@ -106,12 +111,22 @@ func (v *Validator) Validate() error {
 		select {
 		case <-v.Waiter.finished:
 			finished = true
+		case summary := <-v.Waiter.summary:
+			summaries = append(summaries, summary)
 		case err := <-v.Waiter.errors:
-			return errors.Wrap(err, "resource validation failed")
+			return ValidationError{
+				Status:    ValidationFailed,
+				Message:   err,
+				Summaries: summaries,
+			}
 		}
 	}
 
-	return nil
+	return ValidationError{
+		Status:    ValidationSucceeded,
+		Message:   errors.Errorf("test"),
+		Summaries: summaries,
+	}
 }
 
 func (v *Validator) getValidationResources(resource v1alpha1.ClusterResource) []unstructured.Unstructured {
@@ -163,6 +178,7 @@ func (v *Validator) validateResources(r v1alpha1.ClusterResource, resources []un
 	}
 
 	if failed {
+		summary.GVR = groupVersionResource(r.APIVersion, r.Name)
 		return summary, errors.New("failed to validate resources")
 	}
 
