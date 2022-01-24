@@ -45,7 +45,9 @@ spec:
 
     # Perform a field validation
     fields: 
-    - path: .status.phase=running
+    - path: .status.phase
+      values:
+      - running
 
     # This resource validation is required
     required: true
