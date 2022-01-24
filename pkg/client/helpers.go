@@ -67,18 +67,6 @@ func getJsonPathValue(u unstructured.Unstructured, jsonPath string) (string, err
 	return buf.String(), nil
 }
 
-func unstructuredPath(u unstructured.Unstructured, jsonPath string) (string, bool, error) {
-	splitFunction := func(c rune) bool {
-		return c == '.'
-	}
-	statusPath := strings.FieldsFunc(jsonPath, splitFunction)
-	value, f, err := unstructured.NestedString(u.UnstructuredContent(), statusPath...)
-	if err != nil {
-		return "", false, err
-	}
-	return value, f, nil
-}
-
 func unstructuredSlicePath(u unstructured.Unstructured, jsonPath string) ([]interface{}, bool, error) {
 	splitFunction := func(c rune) bool {
 		return c == '.'
