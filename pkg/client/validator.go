@@ -69,7 +69,7 @@ func (v *Validator) Validate() error {
 				} else {
 					successCount++
 					failureCount = 0
-					log.Infof("validation of '%v' successful (%v/%v)", resourceName, successCount, successThreshold)
+					log.Debugf("validation of '%v' successful (%v/%v)", resourceName, successCount, successThreshold)
 				}
 
 				if successCount >= successThreshold {

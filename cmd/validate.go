@@ -24,6 +24,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const defaultLoggingLevel uint32 = 3
+
 var validateCmd = &cobra.Command{
 	Use:   "validate",
 	Short: "validate validates a given cluster",
@@ -42,6 +44,12 @@ var validateCmd = &cobra.Command{
 			log.Fatalf("failed to create dynamic client: %v", err)
 		}
 
+		if logLevel > 0 && logLevel <= 6 {
+			log.SetLevel(log.Level(logLevel))
+		} else {
+			log.SetLevel(log.Level(defaultLoggingLevel))
+		}
+
 		v := client.NewValidator(c, spec)
 		err = v.Validate()
 		if err != nil {
@@ -52,11 +60,13 @@ var validateCmd = &cobra.Command{
 
 var (
 	specFile string
+	logLevel uint32
 )
 
 func init() {
 	rootCmd.AddCommand(validateCmd)
 	validateCmd.Flags().StringVar(&specFile, "filename", "", "Path to cluster validation manifest file (yaml)")
+	validateCmd.Flags().Uint32Var(&logLevel, "verbosity", defaultLoggingLevel, "Logging verbosity 1-6")
 }
 
 func GetKubernetesConfig() (*rest.Config, error) {
