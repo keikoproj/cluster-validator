@@ -14,7 +14,9 @@ spec:
       include: 
       - "test-namespace*"
     fields: 
-    - path: .status.phase=active
+    - path: .status.phase
+      values: 
+      - active
     required: true
     configuration:
       successThreshold: 10

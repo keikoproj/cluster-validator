@@ -13,6 +13,7 @@ limitations under the License.
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	"github.com/keikoproj/cluster-validator/pkg/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/util/jsonpath"
 )
 
 func groupVersionResource(groupVersion, resource string) schema.GroupVersionResource {
@@ -45,12 +47,31 @@ func groupVersionResource(groupVersion, resource string) schema.GroupVersionReso
 	}
 }
 
+func getJsonPathValue(u unstructured.Unstructured, jsonPath string) (string, error) {
+	j := jsonpath.New("")
+	j.AllowMissingKeys(true)
+
+	if !strings.HasPrefix(jsonPath, "{") && !strings.HasSuffix(jsonPath, "}") {
+		jsonPath = fmt.Sprintf("{%v}", jsonPath)
+	}
+
+	if err := j.Parse(jsonPath); err != nil {
+		return "", err
+	}
+
+	buf := new(bytes.Buffer)
+	if err := j.Execute(buf, u.Object); err != nil {
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
 func unstructuredPath(u unstructured.Unstructured, jsonPath string) (string, bool, error) {
 	splitFunction := func(c rune) bool {
 		return c == '.'
 	}
 	statusPath := strings.FieldsFunc(jsonPath, splitFunction)
-
 	value, f, err := unstructured.NestedString(u.UnstructuredContent(), statusPath...)
 	if err != nil {
 		return "", false, err

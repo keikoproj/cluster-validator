@@ -14,5 +14,8 @@ spec:
       include: 
       - "test-namespace*"
     fields: 
-    - path: .status.phase=active
+    - path: .status.phase
+      values:
+      - active
+      - active2
     required: true

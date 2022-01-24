@@ -21,5 +21,7 @@ spec:
       include: 
       - "test-dog*"
     fields: 
-    - path: .status.phase=woof
+    - path: .status.phase
+      values: 
+      - woof
     required: true

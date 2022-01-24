@@ -1,7 +1,7 @@
 apiVersion: v1alpha1
 kind: ClusterValidator
 metadata:
-  name: scope-validation
+  name: field-validation
 spec:
   configuration:
     successThreshold: 3
@@ -13,15 +13,13 @@ spec:
     names:
       include: 
       - test-pod*
-      exclude: 
-      - test-pod-2
     namespaces:
       include:
       - test-namespace*
-      exclude:
-      - test-namespace-3
     fields: 
-    - path: .status.phase
+    - path: "{.status.containerStatuses[*].state.running.startedAt}"
+    - path: "{.status.phase}"
       values:
       - running
+      - succeeded
     required: true
