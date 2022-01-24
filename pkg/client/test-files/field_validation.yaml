@@ -17,5 +17,4 @@ spec:
     - path: .status.phase
       values:
       - active
-      - active2
     required: true
