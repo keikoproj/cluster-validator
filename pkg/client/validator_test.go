@@ -33,6 +33,18 @@ var (
 	NodeGVR      = schema.GroupVersionResource{Version: "v1", Resource: "nodes"}
 	PodGVR       = schema.GroupVersionResource{Version: "v1", Resource: "pods"}
 	DogGVR       = schema.GroupVersionResource{Group: "animals.io", Version: "v1alpha1", Resource: "dogs"}
+
+	runningContainer = corev1.ContainerState{
+		Running: &corev1.ContainerStateRunning{
+			StartedAt: metav1.Time{Time: time.Now()},
+		},
+	}
+
+	terminatedContainer = corev1.ContainerState{
+		Terminated: &corev1.ContainerStateTerminated{
+			Reason: "Evicted",
+		},
+	}
 )
 
 func _fakeDynamicClient() *fake.FakeDynamicClient {
@@ -134,7 +146,7 @@ func _mockNode(cl *fake.FakeDynamicClient, name string, ready bool) {
 	}
 }
 
-func _mockPod(cl *fake.FakeDynamicClient, name, namespace string, running bool) {
+func _mockPod(cl *fake.FakeDynamicClient, name, namespace string, running bool, state corev1.ContainerState) {
 	var phase corev1.PodPhase
 	if running {
 		phase = corev1.PodRunning
@@ -153,6 +165,11 @@ func _mockPod(cl *fake.FakeDynamicClient, name, namespace string, running bool) 
 		},
 		Status: corev1.PodStatus{
 			Phase: phase,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					State: state,
+				},
+			},
 		},
 	}
 
@@ -226,6 +243,30 @@ func Test_NegativeFieldValidation(t *testing.T) {
 	g.Expect(err).To(gomega.HaveOccurred())
 }
 
+func Test_PositiveFieldValidationJsonPath(t *testing.T) {
+	g := gomega.NewWithT(t)
+	gomega.RegisterTestingT(t)
+	dynamic := _fakeDynamicClient()
+	v := _mockValidator("field_validation_jsonpath.yaml", dynamic)
+	_mockPod(dynamic, "test-pod-1", "test-namespace-1", true, runningContainer)
+	_mockPod(dynamic, "test-pod-2", "test-namespace-1", true, runningContainer)
+	_mockPod(dynamic, "test-pod-3", "test-namespace-1", true, runningContainer)
+	err := v.Validate()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func Test_NegativeFieldValidationJsonPath(t *testing.T) {
+	g := gomega.NewWithT(t)
+	gomega.RegisterTestingT(t)
+	dynamic := _fakeDynamicClient()
+	v := _mockValidator("field_validation_jsonpath.yaml", dynamic)
+	_mockPod(dynamic, "test-pod-1", "test-namespace-1", false, terminatedContainer)
+	_mockPod(dynamic, "test-pod-2", "test-namespace-1", true, runningContainer)
+	_mockPod(dynamic, "test-pod-3", "test-namespace-1", true, runningContainer)
+	err := v.Validate()
+	g.Expect(err).To(gomega.HaveOccurred())
+}
+
 func Test_PositiveConditionValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
@@ -254,9 +295,9 @@ func Test_PositiveScopeValidation(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
 	v := _mockValidator("scope_validation.yaml", dynamic)
-	_mockPod(dynamic, "test-pod-1", "test-namespace-1", true)
-	_mockPod(dynamic, "test-pod-2", "test-namespace-2", false)
-	_mockPod(dynamic, "test-pod-3", "test-namespace-3", false)
+	_mockPod(dynamic, "test-pod-1", "test-namespace-1", true, runningContainer)
+	_mockPod(dynamic, "test-pod-2", "test-namespace-2", false, terminatedContainer)
+	_mockPod(dynamic, "test-pod-3", "test-namespace-3", false, terminatedContainer)
 	err := v.Validate()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
@@ -266,9 +307,9 @@ func Test_NegativeScopeValidation(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
 	v := _mockValidator("scope_validation.yaml", dynamic)
-	_mockPod(dynamic, "test-pod-1", "test-namespace-1", false)
-	_mockPod(dynamic, "test-pod-2", "test-namespace-2", true)
-	_mockPod(dynamic, "test-pod-3", "test-namespace-3", true)
+	_mockPod(dynamic, "test-pod-1", "test-namespace-1", false, terminatedContainer)
+	_mockPod(dynamic, "test-pod-2", "test-namespace-2", true, runningContainer)
+	_mockPod(dynamic, "test-pod-3", "test-namespace-3", true, runningContainer)
 	err := v.Validate()
 	g.Expect(err).To(gomega.HaveOccurred())
 }

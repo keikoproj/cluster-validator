@@ -36,18 +36,18 @@ func (c *ClusterResource) GetConfiguration() ValidationConfiguration {
 }
 
 type FieldSelector struct {
-	Path string `json:"path"`
+	Path   string   `json:"path"`
+	Values []string `json:"values"`
 }
 
-func (f *FieldSelector) JSONPath() string {
+func (f *FieldSelector) GetPath() string {
 	s := strings.Split(f.Path, "=")
 	return s[0]
 }
 
-func (f *FieldSelector) Values() []string {
-	s := strings.Split(f.Path, "=")
-	if len(s) > 1 {
-		return strings.Split(s[1], ",")
+func (f *FieldSelector) GetValues() []string {
+	if len(f.Values) > 0 {
+		return f.Values
 	}
 	return []string{"*"}
 }

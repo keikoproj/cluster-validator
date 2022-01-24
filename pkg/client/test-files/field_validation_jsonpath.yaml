@@ -8,13 +8,18 @@ spec:
     failureThreshold: 3 
     interval: 1ms
   resources:
-  - name: namespaces
+  - name: pods
     apiVersion: v1
     names:
       include: 
-      - "test-namespace*"
+      - test-pod*
+    namespaces:
+      include:
+      - test-namespace*
     fields: 
-    - path: .status.phase
+    - path: "{.status.containerStatuses[*].state.running.startedAt}"
+    - path: "{.status.phase}"
       values:
-      - active
+      - running
+      - succeeded
     required: true

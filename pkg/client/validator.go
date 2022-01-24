@@ -246,22 +246,17 @@ func (v *Validator) validateFields(r v1alpha1.ClusterResource, resources []unstr
 	for _, field := range r.Fields {
 
 		var (
-			JSONPath   = field.JSONPath()
-			pathValues = field.Values()
+			JSONPath   = field.GetPath()
+			pathValues = field.GetValues()
 			result     = NewFieldValidationResult(field.Path)
 		)
 
 		for _, resource := range resources {
 			var name = namespacedName(resource)
 
-			val, ok, err := unstructuredPath(resource, JSONPath)
+			val, err := getJsonPathValue(resource, JSONPath)
 			if err != nil {
 				reason := fmt.Sprintf("field '%v' has type mismatch: %v", field.Path, err)
-				result.ResourceErrors[reason] = append(result.ResourceErrors[reason], name)
-			}
-
-			if !ok {
-				reason := fmt.Sprintf("could not find JSONPath '%v' in resources", field.Path)
 				result.ResourceErrors[reason] = append(result.ResourceErrors[reason], name)
 			}
 
