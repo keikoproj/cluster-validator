@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const defaultLoggingLevel uint32 = 3
+const defaultLoggingLevel uint32 = 4
 
 var validateCmd = &cobra.Command{
 	Use:   "validate",
