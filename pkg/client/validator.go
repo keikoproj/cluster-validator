@@ -84,8 +84,10 @@ func (v *Validator) Validate() error {
 					}
 					if r.Required {
 						v.Waiter.errors <- &ValidationError{
-							Message: errors.Errorf("failure threshold met for resource '%v'", resourceName),
-							Summary: summary,
+							Message:              errors.Errorf("failure threshold met for resource '%v'", resourceName),
+							GVR:                  groupVersionResource(r.APIVersion, r.Name),
+							FieldValidations:     summary.FieldValidation,
+							ConditionValidations: summary.ConditionValidation,
 						}
 					}
 					log.Warnf("%v resource '%v' validation failed", failEmoji, resourceName)
@@ -166,7 +168,6 @@ func (v *Validator) validateResources(r v1alpha1.ClusterResource, resources []un
 	}
 
 	if failed {
-		summary.GVR = groupVersionResource(r.APIVersion, r.Name)
 		return summary, errors.New("failed to validate resources")
 	}
 
