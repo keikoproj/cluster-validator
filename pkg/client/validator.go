@@ -29,13 +29,11 @@ import (
 )
 
 var (
-	successEmoji                         = emoji.Sprint(":check_mark_button:")
-	failEmoji                            = emoji.Sprint(":fire:")
-	ValidationFailed    ValidationStatus = "failed"
-	ValidationSucceeded ValidationStatus = "succeeded"
+	successEmoji = emoji.Sprint(":check_mark_button:")
+	failEmoji    = emoji.Sprint(":fire:")
 )
 
-func (v *Validator) Validate() ValidationError {
+func (v *Validator) Validate() error {
 	var (
 		finished bool
 	)
@@ -76,18 +74,19 @@ func (v *Validator) Validate() ValidationError {
 
 				if successCount >= successThreshold {
 					if !reflect.DeepEqual(summary, ValidationSummary{}) {
-						v.Waiter.summary <- summary
 						prettyPrintStruct(summary)
 					}
 					log.Infof("%v resource '%v' validated successfully", successEmoji, resourceName)
 					return
 				} else if failureCount >= failureThreshold {
 					if !reflect.DeepEqual(summary, ValidationSummary{}) {
-						v.Waiter.summary <- summary
 						prettyPrintStruct(summary)
 					}
 					if r.Required {
-						v.Waiter.errors <- errors.Errorf("failure threshold met for resource '%v'", resourceName)
+						v.Waiter.errors <- &ValidationError{
+							Message: errors.Errorf("failure threshold met for resource '%v'", resourceName),
+							Summary: summary,
+						}
 					}
 					log.Warnf("%v resource '%v' validation failed", failEmoji, resourceName)
 					return
@@ -103,7 +102,6 @@ func (v *Validator) Validate() ValidationError {
 		close(v.Waiter.finished)
 	}()
 
-	summaries := []ValidationSummary{}
 	for {
 		if finished {
 			break
@@ -111,22 +109,12 @@ func (v *Validator) Validate() ValidationError {
 		select {
 		case <-v.Waiter.finished:
 			finished = true
-		case summary := <-v.Waiter.summary:
-			summaries = append(summaries, summary)
 		case err := <-v.Waiter.errors:
-			return ValidationError{
-				Status:    ValidationFailed,
-				Message:   err,
-				Summaries: summaries,
-			}
+			return err
 		}
 	}
 
-	return ValidationError{
-		Status:    ValidationSucceeded,
-		Message:   errors.Errorf("test"),
-		Summaries: summaries,
-	}
+	return nil
 }
 
 func (v *Validator) getValidationResources(resource v1alpha1.ClusterResource) []unstructured.Unstructured {

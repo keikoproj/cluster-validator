@@ -13,6 +13,8 @@ limitations under the License.
 package client
 
 import (
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -38,7 +40,6 @@ type Waiter struct {
 	sync.WaitGroup
 	finished chan bool
 	errors   chan error
-	summary  chan ValidationSummary
 }
 
 type ConditionValidationResult struct {
@@ -98,7 +99,6 @@ func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator
 		Waiter: Waiter{
 			finished: make(chan bool),
 			errors:   make(chan error),
-			summary:  make(chan ValidationSummary),
 		},
 		Validation:       m,
 		Kubernetes:       c,
@@ -112,10 +112,12 @@ func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator
 	return v
 }
 
-type ValidationStatus string
-
 type ValidationError struct {
-	Status    ValidationStatus
-	Message   error
-	Summaries []ValidationSummary
+	Message error
+	Summary ValidationSummary
+}
+
+func (e *ValidationError) Error() string {
+	prettySummary, _ := json.MarshalIndent(e.Summary, "", "\t")
+	return fmt.Sprintf("%v. \n%s", e.Message, string(prettySummary))
 }

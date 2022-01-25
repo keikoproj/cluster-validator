@@ -43,9 +43,9 @@ var validateCmd = &cobra.Command{
 		}
 
 		v := client.NewValidator(c, spec)
-		validationErr := v.Validate()
-		if validationErr.Status != client.ValidationSucceeded {
-			log.Fatalf("validation failed: %v", validationErr.Message)
+		err = v.Validate()
+		if err != nil {
+			log.Fatalf("validation failed: %v", err)
 		}
 	},
 }
