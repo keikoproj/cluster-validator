@@ -24,7 +24,10 @@ spec:
       - "kube-system"
     # basic field validation
     fields: 
-    - path: .status.phase=running
+    - path: .status.phase
+      values:
+      - running
+      - succeeded
     required: true
     configuration:
       successThreshold: 3
