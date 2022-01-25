@@ -67,7 +67,6 @@ func NewFieldValidationResult(path string) FieldValidationResult {
 }
 
 type ValidationSummary struct {
-	GVR                 schema.GroupVersionResource
 	FieldValidation     []FieldValidationResult
 	ConditionValidation []ConditionValidationResult
 }
@@ -113,11 +112,15 @@ func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator
 }
 
 type ValidationError struct {
-	Message error
-	Summary ValidationSummary
+	Message              error
+	GVR                  schema.GroupVersionResource
+	FieldValidations     []FieldValidationResult
+	ConditionValidations []ConditionValidationResult
 }
 
 func (e *ValidationError) Error() string {
-	prettySummary, _ := json.MarshalIndent(e.Summary, "", "\t")
-	return fmt.Sprintf("%v. \n%s", e.Message, string(prettySummary))
+	fieldValidationResult, _ := json.MarshalIndent(e.FieldValidations, "", "\t")
+	conditionValidationResult, _ := json.MarshalIndent(e.ConditionValidations, "", "\t")
+	return fmt.Sprintf("%v.\nGVR: %s/%s/%s.\nField Validation Results: %s\nCondition Validation Results: %s", e.Message,
+		e.GVR.Group, e.GVR.Version, e.GVR.Resource, string(fieldValidationResult), string(conditionValidationResult))
 }

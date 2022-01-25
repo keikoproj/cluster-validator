@@ -98,6 +98,7 @@ INFO[0007] ✅  resource 'nodes' validated successfully
 ```golang
 import (
     validator "github.com/keikoproj/cluster-validator/pkg/client"
+    "k8s.io/client-go/dynamic"
 )
 
 func validate(client dynamic.Interface) error {
@@ -111,5 +112,25 @@ func validate(client dynamic.Interface) error {
 		return err
 	}
 }
+```
 
+The `error` returned by `Validate()` has structured data with information on the failed validation:
+
+``` golang
+v := validator.NewValidator(client, spec)
+err := v.Validate()
+if vErr, ok := err.(*validator.ValidationError); ok {
+
+  fmt.Printf("Validation failed for %s/%s/%s.\n",
+    vErr.GVR.Group, vErr.GVR.Version, vErr.GVR.Resource)
+
+  for _, cVal := range vErr.ConditionValidations {
+
+    fmt.Printf("Failed Condition: %s\n", cVal.Condition)
+
+    for msg, resources := range cVal.ResourceErrors {
+      fmt.Printf("Reason: %s.\nResources: %v", msg, resources)
+    }
+  }
+}
 ```
