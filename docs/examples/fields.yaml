@@ -18,5 +18,9 @@ spec:
       - "*"
     # define the jsonpath and value as a test condition
     fields: 
-    - path: .status.phase=active
+      # you can also use JSONPath notation here according to https://kubernetes.io/docs/reference/kubectl/jsonpath
+    - path: .status.phase
+      values:
+      # values considered to be correct (OR condition)
+      - active
     required: true
