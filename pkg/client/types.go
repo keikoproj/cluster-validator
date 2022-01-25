@@ -13,6 +13,8 @@ limitations under the License.
 package client
 
 import (
+	"encoding/json"
+	"fmt"
 	"io/fs"
 	"io/ioutil"
 	"os"
@@ -22,6 +24,7 @@ import (
 	"github.com/keikoproj/cluster-validator/pkg/api/v1alpha1"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 )
 
@@ -64,6 +67,7 @@ func NewFieldValidationResult(path string) FieldValidationResult {
 }
 
 type ValidationSummary struct {
+	GVR                 schema.GroupVersionResource
 	FieldValidation     []FieldValidationResult
 	ConditionValidation []ConditionValidationResult
 }
@@ -106,4 +110,14 @@ func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator
 	}
 
 	return v
+}
+
+type ValidationError struct {
+	Message error
+	Summary ValidationSummary
+}
+
+func (e *ValidationError) Error() string {
+	prettySummary, _ := json.MarshalIndent(e.Summary, "", "\t")
+	return fmt.Sprintf("%v. \n%s", e.Message, string(prettySummary))
 }
