@@ -119,7 +119,7 @@ The `error` returned by `Validate()` has structured data with information on the
 ``` golang
 v := validator.NewValidator(client, spec)
 err := v.Validate()
-if vErr, ok := err.(*validator.ValidationError); ok {
+if vErr, ok := err.(validator.ValidationError); ok {
 
   fmt.Printf("Validation failed for %s/%s/%s.\n",
     vErr.GVR.Group, vErr.GVR.Version, vErr.GVR.Resource)

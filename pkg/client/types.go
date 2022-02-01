@@ -118,7 +118,7 @@ type ValidationError struct {
 	ConditionValidations []ConditionValidationResult
 }
 
-func (e *ValidationError) Error() string {
+func (e ValidationError) Error() string {
 	fieldValidationResult, _ := json.MarshalIndent(e.FieldValidations, "", "\t")
 	conditionValidationResult, _ := json.MarshalIndent(e.ConditionValidations, "", "\t")
 	return fmt.Sprintf("%v.\nGVR: %s/%s/%s.\nField Validation Results: %s\nCondition Validation Results: %s", e.Message,
