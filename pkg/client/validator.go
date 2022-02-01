@@ -83,7 +83,7 @@ func (v *Validator) Validate() error {
 						prettyPrintStruct(summary)
 					}
 					if r.Required {
-						v.Waiter.errors <- &ValidationError{
+						v.Waiter.errors <- ValidationError{
 							Message:              errors.Errorf("failure threshold met for resource '%v'", resourceName),
 							GVR:                  groupVersionResource(r.APIVersion, r.Name),
 							FieldValidations:     summary.FieldValidation,
