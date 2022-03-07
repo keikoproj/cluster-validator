@@ -14,15 +14,21 @@ package client
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/gobwas/glob"
 	"github.com/keikoproj/cluster-validator/pkg/api/v1alpha1"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/jsonpath"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 func groupVersionResource(groupVersion, resource string) schema.GroupVersionResource {
@@ -130,4 +136,63 @@ func namespacedName(r unstructured.Unstructured) string {
 		return r.GetName()
 	}
 	return fmt.Sprintf("%v/%v", r.GetNamespace(), r.GetName())
+}
+
+func rawGet(restClient *rest.RESTClient, uri string) (*bytes.Buffer, error) {
+	r := restClient.Get().RequestURI(uri)
+	stream, err := r.Stream(context.TODO())
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to stream call")
+	}
+	defer stream.Close()
+
+	buf := new(bytes.Buffer)
+	_, err = buf.ReadFrom(stream)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to read stream")
+	}
+	return buf, nil
+}
+
+func GetRESTClient() (*rest.RESTClient, error) {
+	config, err := GetKubernetesConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	config.ContentConfig.GroupVersion = &schema.GroupVersion{Group: "", Version: "v1"}
+	config.APIPath = "/apis"
+	config.NegotiatedSerializer = scheme.Codecs.WithoutConversion()
+	config.UserAgent = rest.DefaultKubernetesUserAgent()
+
+	client, err := rest.RESTClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func GetKubernetesConfig() (*rest.Config, error) {
+	var config *rest.Config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		clientCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+		return clientCfg.ClientConfig()
+	}
+	return config, nil
+}
+
+func GetKubernetesDynamicClient() (dynamic.Interface, error) {
+	var config *rest.Config
+	config, err := GetKubernetesConfig()
+	if err != nil {
+		return nil, err
+	}
+	client, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }

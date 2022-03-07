@@ -14,6 +14,7 @@ package client
 
 import (
 	"context"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -25,6 +26,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic/fake"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	testingutil "k8s.io/client-go/util/testing"
 )
 
 var (
@@ -56,13 +60,40 @@ func _fakeDynamicClient() *fake.FakeDynamicClient {
 	})
 }
 
-func _mockValidator(file string, cl *fake.FakeDynamicClient) *Validator {
+func _mockServer(t *testing.T, expectedBody string, expectedCode int) *httptest.Server {
+	return httptest.NewServer(&testingutil.FakeHandler{
+		StatusCode:   expectedCode,
+		ResponseBody: expectedBody,
+		T:            t,
+	})
+}
+
+func _mockValidator(file string, cl *fake.FakeDynamicClient, testServer *httptest.Server) *Validator {
 	testPath := filepath.Join(testBasePath, file)
 	spec, err := ParseValidationSpec(testPath)
 	if err != nil {
 		panic(err)
 	}
-	return NewValidator(cl, spec)
+
+	var restClient *rest.RESTClient
+	if testServer != nil {
+		cfg := &rest.Config{
+			Host: testServer.URL,
+			ContentConfig: rest.ContentConfig{
+				GroupVersion:         &corev1.SchemeGroupVersion,
+				NegotiatedSerializer: scheme.Codecs.WithoutConversion(),
+			},
+			Username: "user",
+			Password: "pass",
+		}
+
+		restClient, err = rest.RESTClientFor(cfg)
+		if err != nil {
+			panic(err)
+		}
+	}
+
+	return NewValidator(cl, spec, restClient)
 }
 
 func _mockNamespace(cl *fake.FakeDynamicClient, name string, active bool) {
@@ -223,7 +254,7 @@ func Test_PositiveFieldValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("field_validation.yaml", dynamic)
+	v := _mockValidator("field_validation.yaml", dynamic, nil)
 	_mockNamespace(dynamic, "test-namespace-1", true)
 	_mockNamespace(dynamic, "test-namespace-2", true)
 	_mockNamespace(dynamic, "other-namespace-3", false)
@@ -235,7 +266,7 @@ func Test_NegativeFieldValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("field_validation.yaml", dynamic)
+	v := _mockValidator("field_validation.yaml", dynamic, nil)
 	_mockNamespace(dynamic, "test-namespace-1", true)
 	_mockNamespace(dynamic, "test-namespace-2", false)
 	_mockNamespace(dynamic, "other-namespace-3", true)
@@ -247,7 +278,7 @@ func Test_PositiveFieldValidationJsonPath(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("field_validation_jsonpath.yaml", dynamic)
+	v := _mockValidator("field_validation_jsonpath.yaml", dynamic, nil)
 	_mockPod(dynamic, "test-pod-1", "test-namespace-1", true, runningContainer)
 	_mockPod(dynamic, "test-pod-2", "test-namespace-1", true, runningContainer)
 	_mockPod(dynamic, "test-pod-3", "test-namespace-1", true, runningContainer)
@@ -259,7 +290,7 @@ func Test_NegativeFieldValidationJsonPath(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("field_validation_jsonpath.yaml", dynamic)
+	v := _mockValidator("field_validation_jsonpath.yaml", dynamic, nil)
 	_mockPod(dynamic, "test-pod-1", "test-namespace-1", false, terminatedContainer)
 	_mockPod(dynamic, "test-pod-2", "test-namespace-1", true, runningContainer)
 	_mockPod(dynamic, "test-pod-3", "test-namespace-1", true, runningContainer)
@@ -271,7 +302,7 @@ func Test_PositiveConditionValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("condition_validation.yaml", dynamic)
+	v := _mockValidator("condition_validation.yaml", dynamic, nil)
 	_mockNode(dynamic, "test-node-1", false)
 	_mockNode(dynamic, "test-node-2", true)
 	_mockNode(dynamic, "test-node-3", true)
@@ -283,7 +314,7 @@ func Test_NegativeConditionValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("condition_validation.yaml", dynamic)
+	v := _mockValidator("condition_validation.yaml", dynamic, _mockServer(t, "", 200))
 	_mockNode(dynamic, "test-node-1", true)
 	_mockNode(dynamic, "test-node-2", false)
 	err := v.Validate()
@@ -294,7 +325,7 @@ func Test_PositiveScopeValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("scope_validation.yaml", dynamic)
+	v := _mockValidator("scope_validation.yaml", dynamic, nil)
 	_mockPod(dynamic, "test-pod-1", "test-namespace-1", true, runningContainer)
 	_mockPod(dynamic, "test-pod-2", "test-namespace-2", false, terminatedContainer)
 	_mockPod(dynamic, "test-pod-3", "test-namespace-3", false, terminatedContainer)
@@ -306,7 +337,7 @@ func Test_NegativeScopeValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("scope_validation.yaml", dynamic)
+	v := _mockValidator("scope_validation.yaml", dynamic, nil)
 	_mockPod(dynamic, "test-pod-1", "test-namespace-1", false, terminatedContainer)
 	_mockPod(dynamic, "test-pod-2", "test-namespace-2", true, runningContainer)
 	_mockPod(dynamic, "test-pod-3", "test-namespace-3", true, runningContainer)
@@ -318,7 +349,7 @@ func Test_PositiveCustomValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("custom_validation.yaml", dynamic)
+	v := _mockValidator("custom_validation.yaml", dynamic, nil)
 	_mockDog(dynamic, "test-dog-1", "test-namespace-1", "woof")
 	_mockDog(dynamic, "test-dog-2", "test-namespace-2", "woof")
 	_mockDog(dynamic, "dog-3", "test-namespace-3", "bla")
@@ -330,7 +361,7 @@ func Test_NegativeCustomValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("custom_validation.yaml", dynamic)
+	v := _mockValidator("custom_validation.yaml", dynamic, nil)
 	_mockDog(dynamic, "test-dog-1", "test-namespace-1", "woof")
 	_mockDog(dynamic, "test-dog-2", "test-namespace-2", "bla")
 	_mockDog(dynamic, "dog-3", "test-namespace-3", "bla")
@@ -342,7 +373,7 @@ func Test_PositiveRequiredValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("custom_validation.yaml", dynamic)
+	v := _mockValidator("custom_validation.yaml", dynamic, nil)
 	_mockNamespace(dynamic, "test-namespace-1", false)
 	_mockDog(dynamic, "test-dog-1", "test-namespace-1", "woof")
 	_mockDog(dynamic, "test-dog-2", "test-namespace-2", "woof")
@@ -356,7 +387,7 @@ func Test_ConfigurationOverride(t *testing.T) {
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
 	start := time.Now()
-	v := _mockValidator("configuration_override.yaml", dynamic)
+	v := _mockValidator("configuration_override.yaml", dynamic, nil)
 	_mockNamespace(dynamic, "test-namespace-1", true)
 	err := v.Validate()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -364,5 +395,22 @@ func Test_ConfigurationOverride(t *testing.T) {
 	elapsed := end.Sub(start)
 	g.Expect(elapsed.Seconds()).To(gomega.BeNumerically(">", 0.45))
 	g.Expect(elapsed.Seconds()).To(gomega.BeNumerically("<", 0.5))
+}
 
+func Test_PositiveEndpointValidation(t *testing.T) {
+	g := gomega.NewWithT(t)
+	gomega.RegisterTestingT(t)
+	dynamic := _fakeDynamicClient()
+	v := _mockValidator("cluster_endpoint_validation.yaml", dynamic, _mockServer(t, "", 200))
+	err := v.Validate()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func Test_NegativeEndpointValidation(t *testing.T) {
+	g := gomega.NewWithT(t)
+	gomega.RegisterTestingT(t)
+	dynamic := _fakeDynamicClient()
+	v := _mockValidator("cluster_endpoint_validation.yaml", dynamic, _mockServer(t, "", 500))
+	err := v.Validate()
+	g.Expect(err).To(gomega.HaveOccurred())
 }
