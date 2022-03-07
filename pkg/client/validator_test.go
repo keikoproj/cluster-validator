@@ -314,7 +314,7 @@ func Test_NegativeConditionValidation(t *testing.T) {
 	g := gomega.NewWithT(t)
 	gomega.RegisterTestingT(t)
 	dynamic := _fakeDynamicClient()
-	v := _mockValidator("condition_validation.yaml", dynamic, _mockServer(t, "", 200))
+	v := _mockValidator("condition_validation.yaml", dynamic, nil)
 	_mockNode(dynamic, "test-node-1", true)
 	_mockNode(dynamic, "test-node-2", false)
 	err := v.Validate()
