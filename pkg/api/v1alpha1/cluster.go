@@ -29,7 +29,13 @@ func (c *ClusterValidation) GetConfiguration() ValidationConfiguration {
 
 type ClusterValidationSpec struct {
 	Resources     []ClusterResource       `json:"resources"`
+	Endpoints     EndpointsSpec           `json:"endpoints"`
 	Configuration ValidationConfiguration `json:"configuration"`
+}
+
+type EndpointsSpec struct {
+	Cluster []ClusterEndpoint `json:"cluster"`
+	HTTP    []HTTPEndpoint    `json:"http"`
 }
 
 type ValidationConfiguration struct {

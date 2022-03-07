@@ -36,67 +36,22 @@ var (
 func (v *Validator) Validate() error {
 	var (
 		finished bool
+		objs     = v.GetValidationObjects()
 	)
-	for _, resource := range v.GetResources() {
+
+	for _, obj := range objs {
 		v.Waiter.Add(1)
-		var (
-			resourceName = resource.Name
-		)
 
-		go func(r v1alpha1.ClusterResource) {
-			defer v.Waiter.Done()
+		switch r := obj.(type) {
+		case v1alpha1.ClusterResource:
+			go v.validateClusterResource(r)
+		case v1alpha1.ClusterEndpoint:
+			go v.validateClusterEndpoint(r)
+		case v1alpha1.HTTPEndpoint:
+			//TODO
+			continue
 
-			var (
-				successCount, failureCount int
-				successThreshold           = v.successThreshold(r)
-				failureThreshold           = v.failureThreshold(r)
-				summary                    ValidationSummary
-			)
-			log.Infof("validating resource '%v'", resourceName)
-
-			for {
-				err := v.listDynamicResource(r)
-				if err != nil {
-					v.Waiter.errors <- err
-				}
-
-				resources := v.getValidationResources(r)
-
-				if summary, err = v.validateResources(r, resources); err != nil {
-					failureCount++
-					successCount = 0
-					log.Warnf("validation of '%v' failed (%v/%v) -> %v", resourceName, failureCount, failureThreshold, err)
-				} else {
-					successCount++
-					failureCount = 0
-					log.Debugf("validation of '%v' successful (%v/%v)", resourceName, successCount, successThreshold)
-				}
-
-				if successCount >= successThreshold {
-					if !reflect.DeepEqual(summary, ValidationSummary{}) {
-						prettyPrintStruct(summary)
-					}
-					log.Infof("%v resource '%v' validated successfully", successEmoji, resourceName)
-					return
-				} else if failureCount >= failureThreshold {
-					if !reflect.DeepEqual(summary, ValidationSummary{}) {
-						prettyPrintStruct(summary)
-					}
-					if r.Required {
-						v.Waiter.errors <- ValidationError{
-							Message:              errors.Errorf("failure threshold met for resource '%v'", resourceName),
-							GVR:                  groupVersionResource(r.APIVersion, r.Name),
-							FieldValidations:     summary.FieldValidation,
-							ConditionValidations: summary.ConditionValidation,
-						}
-					}
-					log.Warnf("%v resource '%v' validation failed", failEmoji, resourceName)
-					return
-				}
-				time.Sleep(v.interval(r))
-			}
-
-		}(resource)
+		}
 	}
 
 	go func() {
@@ -117,6 +72,114 @@ func (v *Validator) Validate() error {
 	}
 
 	return nil
+}
+
+func (v *Validator) validateClusterResource(r v1alpha1.ClusterResource) {
+	defer v.Waiter.Done()
+	var (
+		summary                    = ValidationSummary{}
+		resourceName               = r.Name
+		successCount, failureCount int
+		globalCfg                  = v.GetGlobalConfiguration()
+		successThreshold           = r.SuccessThreshold(globalCfg)
+		failureThreshold           = r.FailureThreshold(globalCfg)
+	)
+	log.Infof("validating resource '%v'", resourceName)
+
+	for {
+		err := v.listDynamicResource(r)
+		if err != nil {
+			v.Waiter.errors <- err
+		}
+
+		resources := v.getValidationResources(r)
+
+		if summary, err = v.validateResources(r, resources); err != nil {
+			failureCount++
+			successCount = 0
+			log.Warnf("validation of '%v' failed (%v/%v) -> %v", resourceName, failureCount, failureThreshold, err)
+		} else {
+			successCount++
+			failureCount = 0
+			log.Infof("validation of '%v' successful (%v/%v)", resourceName, successCount, successThreshold)
+		}
+
+		if successCount >= successThreshold {
+			if !reflect.DeepEqual(summary, ValidationSummary{}) {
+				prettyPrintStruct(summary)
+			}
+			log.Infof("%v resource '%v' validated successfully", successEmoji, resourceName)
+			return
+		} else if failureCount >= failureThreshold {
+			if !reflect.DeepEqual(summary, ValidationSummary{}) {
+				prettyPrintStruct(summary)
+			}
+			if r.Required {
+				v.Waiter.errors <- ValidationError{
+					Message:              errors.Errorf("failure threshold met for resource '%v'", resourceName),
+					GVR:                  groupVersionResource(r.APIVersion, r.Name),
+					FieldValidations:     summary.FieldValidation,
+					ConditionValidations: summary.ConditionValidation,
+				}
+			}
+			log.Warnf("%v resource '%v' validation failed", failEmoji, resourceName)
+			return
+		}
+		time.Sleep(r.Interval(globalCfg))
+	}
+}
+
+func (v *Validator) validateClusterEndpoint(r v1alpha1.ClusterEndpoint) {
+	defer v.Waiter.Done()
+
+	var (
+		summary                    = ValidationSummary{}
+		resourceName               = r.Name
+		successCount, failureCount int
+		globalCfg                  = v.GetGlobalConfiguration()
+		successThreshold           = r.SuccessThreshold(globalCfg)
+		failureThreshold           = r.FailureThreshold(globalCfg)
+	)
+
+	log.Infof("validating cluster endpoint '%v'", resourceName)
+
+	for {
+		res := NewClusterEndpointValidationResult(r.Name)
+
+		if out, err := rawGet(v.RESTClient, r.URI); err != nil {
+			failureCount++
+			successCount = 0
+			res.Errors[r.URI] = err.Error()
+			log.Warnf("validation of cluster endpoint '%v' failed (%v/%v) -> %v", resourceName, failureCount, failureThreshold, err)
+		} else {
+			successCount++
+			failureCount = 0
+			log.Debugf("rawGet output for %v: %v", r.Name, out.String())
+			log.Infof("validation of '%v' successful (%v/%v)", resourceName, successCount, successThreshold)
+		}
+
+		if successCount >= successThreshold {
+			if !reflect.DeepEqual(summary, ValidationSummary{}) {
+				prettyPrintStruct(summary)
+			}
+			log.Infof("%v resource '%v' validated successfully", successEmoji, resourceName)
+			return
+		} else if failureCount >= failureThreshold {
+			summary.ClusterEndpointValidation = append(summary.ClusterEndpointValidation, res)
+			if !reflect.DeepEqual(summary, ValidationSummary{}) {
+				prettyPrintStruct(summary)
+			}
+			if r.Required {
+				v.Waiter.errors <- ValidationError{
+					Message:                    errors.Errorf("failure threshold met for resource '%v'", resourceName),
+					ClusterEndpointValidations: summary.ClusterEndpointValidation,
+				}
+			}
+			log.Warnf("%v resource '%v' validation failed", failEmoji, resourceName)
+			return
+		}
+		time.Sleep(r.Interval(globalCfg))
+	}
 }
 
 func (v *Validator) getValidationResources(resource v1alpha1.ClusterResource) []unstructured.Unstructured {
@@ -277,55 +340,6 @@ func (v *Validator) validateFields(r v1alpha1.ClusterResource, resources []unstr
 	}
 
 	return failedValidations
-}
-
-func (v *Validator) successThreshold(resource v1alpha1.ClusterResource) int {
-	var (
-		resourceCfg = resource.GetConfiguration()
-		globalCfg   = v.Validation.GetConfiguration()
-	)
-
-	if resourceCfg.SuccessThreshold > 0 {
-		return resourceCfg.SuccessThreshold
-	} else {
-		return globalCfg.SuccessThreshold
-	}
-}
-
-func (v *Validator) failureThreshold(resource v1alpha1.ClusterResource) int {
-	var (
-		resourceCfg = resource.GetConfiguration()
-		globalCfg   = v.Validation.GetConfiguration()
-	)
-
-	if resourceCfg.FailureThreshold > 0 {
-		return resourceCfg.FailureThreshold
-	} else {
-		return globalCfg.FailureThreshold
-	}
-}
-
-func (v *Validator) interval(resource v1alpha1.ClusterResource) time.Duration {
-	var (
-		resourceCfg = resource.GetConfiguration()
-		globalCfg   = v.Validation.GetConfiguration()
-	)
-
-	if resourceCfg.Interval != "" {
-		d, err := time.ParseDuration(resourceCfg.Interval)
-		if err != nil {
-			log.Warnf("failed to parse duration '%v', using default of 1s", resourceCfg.Interval)
-			return time.Second * 1
-		}
-		return d
-	} else {
-		d, err := time.ParseDuration(globalCfg.Interval)
-		if err != nil {
-			log.Warnf("failed to parse duration '%v', using default of 1s", globalCfg.Interval)
-			return time.Second * 1
-		}
-		return d
-	}
 }
 
 func (v *Validator) listDynamicResource(resource v1alpha1.ClusterResource) error {

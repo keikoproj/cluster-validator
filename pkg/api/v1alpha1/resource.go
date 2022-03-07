@@ -14,15 +14,31 @@ package v1alpha1
 
 import (
 	"strings"
+	"time"
 
+	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 )
 
-type ClusterResource struct {
-	Name       string `json:"name"`
-	APIVersion string `json:"apiVersion"`
-	Required   bool   `json:"required"`
+type ClusterEndpoint struct {
+	Name          string                  `json:"name"`
+	Required      bool                    `json:"required"`
+	Configuration ValidationConfiguration `json:"configuration,omitempty"`
+	URI           string                  `json:"uri,omitempty"`
+}
 
+type HTTPEndpoint struct {
+	Name          string                  `json:"name"`
+	Required      bool                    `json:"required"`
+	Configuration ValidationConfiguration `json:"configuration,omitempty"`
+	URL           string                  `json:"url,omitempty"`
+	Codes         []int                   `json:"codes,omitempty"`
+}
+
+type ClusterResource struct {
+	Name          string                  `json:"name"`
+	APIVersion    string                  `json:"apiVersion"`
+	Required      bool                    `json:"required"`
 	Configuration ValidationConfiguration `json:"configuration,omitempty"`
 	Namespaces    *SelectionScope         `json:"namespaces,omitempty"`
 	Names         *SelectionScope         `json:"names,omitempty"`
@@ -31,8 +47,142 @@ type ClusterResource struct {
 	Conditions    []ResourceCondition     `json:"conditions,omitempty"`
 }
 
+func (r *ClusterResource) SuccessThreshold(globalCfg ValidationConfiguration) int {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+	if resourceCfg.SuccessThreshold > 0 {
+		return resourceCfg.SuccessThreshold
+	}
+	return globalCfg.SuccessThreshold
+}
+
+func (r *ClusterResource) FailureThreshold(globalCfg ValidationConfiguration) int {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+	if resourceCfg.FailureThreshold > 0 {
+		return resourceCfg.FailureThreshold
+	}
+	return globalCfg.FailureThreshold
+}
+
+func (r *HTTPEndpoint) SuccessThreshold(globalCfg ValidationConfiguration) int {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+	if resourceCfg.SuccessThreshold > 0 {
+		return resourceCfg.SuccessThreshold
+	}
+	return globalCfg.SuccessThreshold
+}
+
+func (r *HTTPEndpoint) FailureThreshold(globalCfg ValidationConfiguration) int {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+	if resourceCfg.FailureThreshold > 0 {
+		return resourceCfg.FailureThreshold
+	}
+	return globalCfg.FailureThreshold
+}
+
+func (r *ClusterEndpoint) SuccessThreshold(globalCfg ValidationConfiguration) int {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+	if resourceCfg.SuccessThreshold > 0 {
+		return resourceCfg.SuccessThreshold
+	}
+	return globalCfg.SuccessThreshold
+}
+
+func (r *ClusterEndpoint) FailureThreshold(globalCfg ValidationConfiguration) int {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+	if resourceCfg.FailureThreshold > 0 {
+		return resourceCfg.FailureThreshold
+	}
+	return globalCfg.FailureThreshold
+}
+
 func (c *ClusterResource) GetConfiguration() ValidationConfiguration {
 	return c.Configuration
+}
+
+func (c *HTTPEndpoint) GetConfiguration() ValidationConfiguration {
+	return c.Configuration
+}
+
+func (c *ClusterEndpoint) GetConfiguration() ValidationConfiguration {
+	return c.Configuration
+}
+
+func (r *ClusterResource) Interval(globalCfg ValidationConfiguration) time.Duration {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+
+	if resourceCfg.Interval != "" {
+		d, err := time.ParseDuration(resourceCfg.Interval)
+		if err != nil {
+			log.Warnf("failed to parse duration '%v', using default of 1s", resourceCfg.Interval)
+			return time.Second * 1
+		}
+		return d
+	} else {
+		d, err := time.ParseDuration(globalCfg.Interval)
+		if err != nil {
+			log.Warnf("failed to parse duration '%v', using default of 1s", globalCfg.Interval)
+			return time.Second * 1
+		}
+		return d
+	}
+}
+
+func (r *ClusterEndpoint) Interval(globalCfg ValidationConfiguration) time.Duration {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+
+	if resourceCfg.Interval != "" {
+		d, err := time.ParseDuration(resourceCfg.Interval)
+		if err != nil {
+			log.Warnf("failed to parse duration '%v', using default of 1s", resourceCfg.Interval)
+			return time.Second * 1
+		}
+		return d
+	} else {
+		d, err := time.ParseDuration(globalCfg.Interval)
+		if err != nil {
+			log.Warnf("failed to parse duration '%v', using default of 1s", globalCfg.Interval)
+			return time.Second * 1
+		}
+		return d
+	}
+}
+
+func (r *HTTPEndpoint) Interval(globalCfg ValidationConfiguration) time.Duration {
+	var (
+		resourceCfg = r.GetConfiguration()
+	)
+
+	if resourceCfg.Interval != "" {
+		d, err := time.ParseDuration(resourceCfg.Interval)
+		if err != nil {
+			log.Warnf("failed to parse duration '%v', using default of 1s", resourceCfg.Interval)
+			return time.Second * 1
+		}
+		return d
+	} else {
+		d, err := time.ParseDuration(globalCfg.Interval)
+		if err != nil {
+			log.Warnf("failed to parse duration '%v', using default of 1s", globalCfg.Interval)
+			return time.Second * 1
+		}
+		return d
+	}
 }
 
 type FieldSelector struct {

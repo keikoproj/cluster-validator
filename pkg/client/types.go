@@ -17,8 +17,10 @@ import (
 	"fmt"
 	"io/fs"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/keikoproj/cluster-validator/pkg/api/v1alpha1"
@@ -26,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 )
 
 type Validator struct {
@@ -33,6 +36,8 @@ type Validator struct {
 	Waiter
 	Validation       *v1alpha1.ClusterValidation
 	Kubernetes       dynamic.Interface
+	RESTClient       *rest.RESTClient
+	HTTPClient       *http.Client
 	ClusterResources map[string][]unstructured.Unstructured
 }
 
@@ -66,13 +71,62 @@ func NewFieldValidationResult(path string) FieldValidationResult {
 	}
 }
 
+type HTTPEndpointValidationResult struct {
+	Errors map[string]string
+	Name   string
+}
+
+func NewHTTPEndpointValidationResult(name string) HTTPEndpointValidationResult {
+	return HTTPEndpointValidationResult{
+		Errors: make(map[string]string),
+		Name:   name,
+	}
+}
+
+type ClusterEndpointValidationResult struct {
+	Errors map[string]string
+	Name   string
+}
+
+func NewClusterEndpointValidationResult(name string) ClusterEndpointValidationResult {
+	return ClusterEndpointValidationResult{
+		Errors: make(map[string]string),
+		Name:   name,
+	}
+}
+
 type ValidationSummary struct {
-	FieldValidation     []FieldValidationResult
-	ConditionValidation []ConditionValidationResult
+	FieldValidation           []FieldValidationResult
+	ConditionValidation       []ConditionValidationResult
+	ClusterEndpointValidation []ClusterEndpointValidationResult
+	HTTPEndpointValidation    []HTTPEndpointValidationResult
+}
+
+func (v *Validator) GetValidationObjects() []interface{} {
+	objs := make([]interface{}, 0)
+	for _, res := range v.GetResources() {
+		objs = append(objs, res)
+	}
+	ep := v.GetEndpointSpec()
+	for _, clusterEndpoint := range ep.Cluster {
+		objs = append(objs, clusterEndpoint)
+	}
+	for _, httpEndpoint := range ep.HTTP {
+		objs = append(objs, httpEndpoint)
+	}
+	return objs
 }
 
 func (v *Validator) GetResources() []v1alpha1.ClusterResource {
 	return v.Validation.Spec.Resources
+}
+
+func (v *Validator) GetEndpointSpec() v1alpha1.EndpointsSpec {
+	return v.Validation.Spec.Endpoints
+}
+
+func (v *Validator) GetGlobalConfiguration() v1alpha1.ValidationConfiguration {
+	return v.Validation.Spec.Configuration
 }
 
 func ParseValidationSpec(path string) (*v1alpha1.ClusterValidation, error) {
@@ -93,14 +147,18 @@ func ParseValidationSpec(path string) (*v1alpha1.ClusterValidation, error) {
 	return validationSpec, nil
 }
 
-func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator {
+func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation, r *rest.RESTClient) *Validator {
 	v := &Validator{
 		Waiter: Waiter{
 			finished: make(chan bool),
 			errors:   make(chan error),
 		},
-		Validation:       m,
-		Kubernetes:       c,
+		Validation: m,
+		Kubernetes: c,
+		RESTClient: r,
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 		ClusterResources: make(map[string][]unstructured.Unstructured),
 	}
 
@@ -112,10 +170,16 @@ func NewValidator(c dynamic.Interface, m *v1alpha1.ClusterValidation) *Validator
 }
 
 type ValidationError struct {
-	Message              error
-	GVR                  schema.GroupVersionResource
-	FieldValidations     []FieldValidationResult
-	ConditionValidations []ConditionValidationResult
+	Message                    error
+	GVR                        schema.GroupVersionResource
+	FieldValidations           []FieldValidationResult
+	ConditionValidations       []ConditionValidationResult
+	ClusterEndpointValidations []ClusterEndpointValidationResult
+	HTTPEndpointValidations    []HTTPEndpointValidationResult
+}
+
+func ToValidationError(err error) ValidationError {
+	return err.(ValidationError)
 }
 
 func (e ValidationError) Error() string {

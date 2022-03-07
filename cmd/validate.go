@@ -17,10 +17,6 @@ import (
 
 	"github.com/keikoproj/cluster-validator/pkg/client"
 
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-
 	"github.com/spf13/cobra"
 )
 
@@ -39,9 +35,14 @@ var validateCmd = &cobra.Command{
 			log.Fatalf("failed to parse validation spec from file: %v", err)
 		}
 
-		c, err := GetKubernetesDynamicClient()
+		c, err := client.GetKubernetesDynamicClient()
 		if err != nil {
 			log.Fatalf("failed to create dynamic client: %v", err)
+		}
+
+		r, err := client.GetRESTClient()
+		if err != nil {
+			log.Fatalf("failed to create REST client: %v", err)
 		}
 
 		if logLevel > 0 && logLevel <= 6 {
@@ -50,10 +51,10 @@ var validateCmd = &cobra.Command{
 			log.SetLevel(log.Level(defaultLoggingLevel))
 		}
 
-		v := client.NewValidator(c, spec)
+		v := client.NewValidator(c, spec, r)
 		err = v.Validate()
 		if err != nil {
-			log.Fatalf("validation failed: %v", err)
+			log.Fatalf("validation failed: %v", client.ToValidationError(err).Message)
 		}
 	},
 }
@@ -67,28 +68,4 @@ func init() {
 	rootCmd.AddCommand(validateCmd)
 	validateCmd.Flags().StringVar(&specFile, "filename", "", "Path to cluster validation manifest file (yaml)")
 	validateCmd.Flags().Uint32Var(&logLevel, "verbosity", defaultLoggingLevel, "Logging verbosity 1-6")
-}
-
-func GetKubernetesConfig() (*rest.Config, error) {
-	var config *rest.Config
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-		clientCfg := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-		return clientCfg.ClientConfig()
-	}
-	return config, nil
-}
-
-func GetKubernetesDynamicClient() (dynamic.Interface, error) {
-	var config *rest.Config
-	config, err := GetKubernetesConfig()
-	if err != nil {
-		return nil, err
-	}
-	client, err := dynamic.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	return client, nil
 }

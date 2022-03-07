@@ -72,6 +72,13 @@ spec:
       successThreshold: 5
       failureThreshold: 10
 
+  # Endpoints to validate
+  endpoints:
+    # You can validate cluster URIs
+    cluster:
+    - name: Component Validation
+      uri: "/readyz?include=etcd&verbose"
+      required: true
 ```
 
 More examples [here](docs/examples).
