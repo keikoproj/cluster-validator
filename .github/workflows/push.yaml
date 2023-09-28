@@ -27,8 +27,7 @@ jobs:
       id: qemu
       uses: docker/setup-qemu-action@v3
       with:
-        image: tonistiigi/binfmt:latest
-        platforms: all
+        platforms: linux/amd64,linux/arm64
 
     - name: Login to DockerHub
       uses: docker/login-action@v1
@@ -38,15 +37,19 @@ jobs:
 
     - name: Docker meta
       id: docker_meta
-      uses: docker/metadata-action@v3
+      uses: docker/metadata-action@v5
       with:
         images: ${{ github.repository_owner }}/cluster-validator
+        tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
 
     - name: Build and push
       uses: docker/build-push-action@v5
       with:
         context: .
         file: ./Dockerfile
-        platforms: linux/amd64
+        platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ steps.docker_meta.outputs.tags }}
