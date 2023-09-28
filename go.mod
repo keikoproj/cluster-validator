@@ -8,7 +8,7 @@ require (
 	github.com/kyokomi/emoji v2.2.4+incompatible
 	github.com/onsi/gomega v1.7.0
 	github.com/pkg/errors v0.9.1
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.1.3
 	k8s.io/api v0.21.3
 	k8s.io/apimachinery v0.21.3
