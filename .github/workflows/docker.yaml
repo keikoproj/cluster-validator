@@ -1,34 +1,30 @@
-name: docker
+name: Docker
 
 on:
   push:
     branches:
       - 'master'
+    # Publish semver tags as releases.
     tags:
-      - 'v*'
+      - 'v*.*.*'
   pull_request:
     branches:
       - 'master'
 
+env:
+  # github.repository as <account>/<repo>
+  IMAGE_NAME: ${{ github.repository }}
+      
 jobs:
   docker-build:
     if: github.repository_owner == 'keikoproj'
     runs-on: ubuntu-latest
     steps:
-      - name: Check out code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ github.repository_owner }}/cluster-validator
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-
-      - name: Login to DockerHub
+      - name: Log into registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -45,7 +41,17 @@ jobs:
           install: true
           version: latest
 
-      - name: Build image (and push if release)
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+
+      - name: Build Docker image (and push if release)
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -54,3 +60,5 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
