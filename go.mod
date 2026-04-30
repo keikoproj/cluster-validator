@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	k8s.io/api v0.25.14
-	k8s.io/apimachinery v0.25.14
+	k8s.io/apimachinery v0.25.16
 	k8s.io/client-go v0.25.14
 	k8s.io/kubectl v0.25.14
 )
